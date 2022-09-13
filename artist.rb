@@ -5,14 +5,19 @@ require 'base64'
 class Generator
   CODE_TEMPLATE = -> (message) { "eval(%w(puts \"#{message}\".unpack('m')\[0\])*\"\")" }
 
-  def initialize(image_path, message)
+  def initialize(image_path, message, reverse = false)
     @image_path = image_path
     @message = message
+    @reverse = reverse
+  end
+
+  def val_to_plot
+    @reverse ? 0 : 1
   end
   
   def run
     shape = normarize(image_narray)
-    dots = shape.flatten.sum
+    dots = shape.flatten.count { _1 == val_to_plot }
 
     puts code_art(encoded_message_print_code(@message, dots), shape)
   end
@@ -30,11 +35,11 @@ class Generator
 
   def normarize(narray)
     narray.to_a.map do |row|
-      row.map do |r,g,b,a|
+      row.map do |r, g, b,a|
         if a != 0 && (r + g + b) / 3  < 200
-          0
-        else
           1
+        else
+          0
         end
       end
     end
@@ -55,8 +60,8 @@ class Generator
     chars = code.chars.reverse
 
     shape.map do |row|
-      row.map do |c|
-        if c == 1
+      row.map do |val|
+        if val == val_to_plot
           chars.pop
         else
           " "
@@ -66,4 +71,7 @@ class Generator
   end
 end
 
-Generator.new(ARGV[0], ARGV[1]).run
+args = ARGV.dup
+reverse = !!args.delete('--reverse')
+
+Generator.new(args[0], args[1], reverse).run
