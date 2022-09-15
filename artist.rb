@@ -3,20 +3,21 @@ require 'numo/narray'
 require 'base64'
 
 class Generator
-  CODE_TEMPLATE = -> (message) { "eval(%w(puts \"#{message}\".unpack('m')\[0\])*\"\")" }
+  CODE_TEMPLATE = -> (message) { "eval(%w(puts(\"#{message}\".unpack('m')\[0\]))*\"\")" }
 
-  def initialize(image_path, message, reverse = false)
+  def initialize(image_path, message, threshold, reverse = false)
     @image_path = image_path
     @message = message
     @reverse = reverse
+    @threshold = threshold || 120
   end
 
   def val_to_plot
     @reverse ? 0 : 1
   end
-  
+
   def run
-    shape = normarize(image_narray)
+    shape = binarize(image_narray)
     dots = shape.flatten.count { _1 == val_to_plot }
 
     puts code_art(encoded_message_print_code(@message, dots), shape)
@@ -33,14 +34,11 @@ class Generator
     narray.reshape!(height, width, 4)
   end
 
-  def normarize(narray)
+  def binarize(narray)
     narray.to_a.map do |row|
       row.map do |r, g, b,a|
-        if a != 0 && (r + g + b) / 3  < 200
-          1
-        else
-          0
-        end
+        plotted = a != 0 && (r + g + b) / 3  < @threshold
+        plotted ? 1 : 0
       end
     end
   end
@@ -74,4 +72,4 @@ end
 args = ARGV.dup
 reverse = !!args.delete('--reverse')
 
-Generator.new(args[0], args[1], reverse).run
+Generator.new(args[0], args[1], args[2]&.to_i, reverse).run
